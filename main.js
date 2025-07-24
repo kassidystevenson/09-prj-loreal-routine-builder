@@ -440,3 +440,48 @@ body {
   margin-right: 8px;
   color: #e3a535;
 }
+
+/* JavaScript-generated styles */
+.chat-window {
+  padding: 20px;
+  font-size: 18px;
+  line-height: 1.6;
+  height: 250px;
+  overflow-y: auto;
+  background: #fafafa;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  border: 1.5px solid #e3a535;
+  box-shadow: 0 1px 6px #e3a53511;
+}
+
+.placeholder-message {
+  width: 100%;
+  text-align: center;
+  padding: 40px;
+  color: #e3a535;
+  font-size: 18px;
+  font-style: italic;
+  background: #fffbe6;
+  border-radius: 8px;
+}
+
+.product-card.selected {
+  border-color: #ff003b;
+  box-shadow: 0 4px 24px #ff003b44, 0 0 0 4px #ff003b33;
+  background: linear-gradient(120deg, #fffbe6 80%, #ffe3ec 100%);
+}
+
+.product-card.selected::after {
+  content: "✓";
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 22px;
+  color: #ff003b;
+  font-weight: bold;
+  background: #fff;
+  border-radius: 50%;
+  padding: 2px 7px;
+  box-shadow: 0 1px 4px #ff003b22;
+}
