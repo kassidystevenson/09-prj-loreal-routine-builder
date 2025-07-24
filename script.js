@@ -22,19 +22,114 @@ async function loadProducts() {
 
 /* Create HTML for displaying product cards */
 function displayProducts(products) {
+  // Create product cards with a Select button
   productsContainer.innerHTML = products
     .map(
-      (product) => `
-    <div class="product-card">
+      (product, idx) => `
+    <div class="product-card" data-idx="${idx}">
       <img src="${product.image}" alt="${product.name}">
       <div class="product-info">
         <h3>${product.name}</h3>
         <p>${product.brand}</p>
+        <button class="select-btn" data-idx="${idx}">Select</button>
       </div>
     </div>
   `
     )
     .join("");
+
+  // Add event listeners to product cards for instant routine generation
+  const productCards = productsContainer.querySelectorAll(".product-card");
+  productCards.forEach((card) => {
+    card.addEventListener("click", async () => {
+      const idx = card.getAttribute("data-idx");
+      const product = products[idx];
+
+      // Show product selection in chat window
+      const userDiv = document.createElement("div");
+      userDiv.className = "chat-message user-message";
+      userDiv.innerHTML = `<strong>You selected:</strong> ${product.name} <span>(${product.brand})</span>`;
+      chatWindow.appendChild(userDiv);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+
+      // Show loading message
+      displayRoutine("Generating description and routine...");
+
+      // Generate description and routine using the chatbot
+      const messages = [
+        {
+          role: "system",
+          content:
+            "You are a helpful L'Oréal product expert. When given a product, provide a short description and a recommended routine for using it. Be clear and concise.",
+        },
+        {
+          role: "user",
+          content: `Product: ${product.name}\nBrand: ${
+            product.brand
+          }\nCategory: ${product.category}\nDescription: ${
+            product.description || ""
+          }\nPlease provide a description and recommended routine for this product.`,
+        },
+      ];
+
+      // Prepare the API request
+      const apiUrl = "https://loreal-chatbot-446.kasstevenson06.workers.dev/";
+      try {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o",
+            messages: messages,
+          }),
+        });
+        const data = await response.json();
+        if (
+          data.choices &&
+          data.choices[0] &&
+          data.choices[0].message &&
+          data.choices[0].message.content
+        ) {
+          // Log for debugging
+          console.log(
+            "AI product description and routine:",
+            data.choices[0].message.content
+          );
+          displayRoutine(data.choices[0].message.content);
+        } else {
+          displayRoutine(
+            "Sorry, I couldn't generate a description or routine. Please try again."
+          );
+        }
+      } catch (error) {
+        displayRoutine(
+          "Error connecting to AI. Please check your API key and internet connection."
+        );
+      }
+    });
+  });
+}
+
+// Add selected product to the selected products list
+function addProductToSelected(product) {
+  // Check if product is already selected
+  const alreadySelected = Array.from(
+    selectedProductsList.querySelectorAll(".selected-product")
+  ).some((el) => el.getAttribute("data-name") === product.name);
+  if (alreadySelected) return;
+
+  // Create a new element for the selected product
+  const productDiv = document.createElement("div");
+  productDiv.className = "selected-product";
+  productDiv.setAttribute("data-name", product.name);
+  productDiv.setAttribute("data-brand", product.brand);
+  productDiv.setAttribute("data-category", product.category);
+  productDiv.setAttribute("data-description", product.description || "");
+  productDiv.innerHTML = `<strong>${product.name}</strong> <span>(${product.brand})</span>`;
+
+  selectedProductsList.appendChild(productDiv);
 }
 
 /* Filter and display products when category changes */
@@ -104,8 +199,7 @@ async function generateRoutineWithAI(products) {
   ];
 
   // Prepare the API request
-  const apiUrl = "https://api.openai.com/v1/chat/completions";
-  const apiKey = typeof OPENAI_API_KEY !== "undefined" ? OPENAI_API_KEY : ""; // Use key from secrets.js
+  const apiUrl = "https://loreal-chatbot-446.kasstevenson06.workers.dev/";
 
   try {
     // Send the request to OpenAI
@@ -113,7 +207,7 @@ async function generateRoutineWithAI(products) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey || ""}`,
       },
       body: JSON.stringify({
         model: "gpt-4o", // Use gpt-4o model
@@ -131,8 +225,14 @@ async function generateRoutineWithAI(products) {
       data.choices[0].message &&
       data.choices[0].message.content
     ) {
+      // Log the AI's message content for debugging
+      console.log(
+        "AI routine message.content:",
+        data.choices[0].message.content
+      );
       return data.choices[0].message.content;
     } else {
+      console.log("No valid AI routine returned:", data);
       return "Sorry, I couldn't generate a routine. Please try again.";
     }
   } catch (error) {
@@ -143,18 +243,23 @@ async function generateRoutineWithAI(products) {
 
 // This function displays the routine in the chat window
 function displayRoutine(routineText) {
-  // Create a new chat message element
+  // Remove the loading message if present
+  const loadingMsg = chatWindow.querySelector(".ai-message");
+  if (
+    loadingMsg &&
+    loadingMsg.textContent.includes("Generating your personalized routine")
+  ) {
+    chatWindow.removeChild(loadingMsg);
+  }
+
+  // Create a new chat message element for the AI's response
   const routineDiv = document.createElement("div");
   routineDiv.className = "chat-message ai-message";
   routineDiv.innerHTML = `<strong>Personalized Routine:</strong><br>${routineText.replace(
     /\n/g,
     "<br>"
   )}`;
-
-  // Add the routine to the chat window
   chatWindow.appendChild(routineDiv);
-
-  // Scroll to the bottom
   chatWindow.scrollTop = chatWindow.scrollHeight;
 }
 
@@ -168,6 +273,15 @@ generateBtn.addEventListener("click", async () => {
     displayRoutine("Please select at least one product to generate a routine.");
     return;
   }
+
+  // Show selected products in the chat window as a user message
+  const userDiv = document.createElement("div");
+  userDiv.className = "chat-message user-message";
+  userDiv.innerHTML = `<strong>You selected:</strong><br>${products
+    .map((p) => `${p.name} <span>(${p.brand})</span>`)
+    .join("<br>")}`;
+  chatWindow.appendChild(userDiv);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
 
   // Show a loading message
   displayRoutine("Generating your personalized routine...");
